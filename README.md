@@ -23,12 +23,12 @@ We compare our method (MAQ+RLPD) with the baseline (RLPD) on D4RL Adroit tasks.
 ### Door Task
 | MAQ+RLPD (Ours) | RLPD |
 |:---:|:---:|
-| <video src="docs/clips/RLPD/MAQRLPD_door.mp4" width="300" /> | <video src="docs/clips/RLPD/RLPDAgent_door.mp4" width="300" /> |
+| <img src="docs/clips/RLPD/MAQRLPD_door.gif" width="300" /> | <img src="docs/clips/RLPD/RLPDAgent_door.gif" width="300" /> |
 | **Human-like approach** <br> Approaches the door naturally. | **Unnatural behavior** <br> Uses a "back hand" strategy to open the door, maximizing reward but sacrificing naturalness. |
 ### Hammer Task
 | MAQ+RLPD (Ours) | RLPD |
 |:---:|:---:|
-| <video src="docs/clips/RLPD/MAQRLPD_hammer.mp4" width="300" /> | <video src="docs/clips/RLPD/RLPDAgent_hammer.mp4" width="300" /> |
+| <img src="docs/clips/RLPD/MAQRLPD_hammer.gif" width="300" /> | <img src="docs/clips/RLPD/RLPDAgent_hammer.gif" width="300" /> |
 | **Human-like approach** <br> Exhibits controlled and natural hammering motion. | **Reward-driven behavior** <br> Hammers the nail aggressively fast to maximize reward, resulting in unnatural behavior. |
 
 ## Training Macro Action Quantization
