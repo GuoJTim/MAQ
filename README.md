@@ -62,7 +62,7 @@ Enter the container to continue the instructions:
 > [!NOTE]
 > All the instructions must be executed in the container.
 
-### (Optional) Preprocessing Human Demonstrations
+### (Optional) Preprocessing Training and Testing Datasets
 <!-- // the dataset must store in the offline_data and can use ./offline_data/gen_offline_data.py to generate the dataset provided by d4rl
 // tell them the dataset format, and if using the customize dataset must change to that format -->
 
@@ -70,18 +70,19 @@ Enter the container to continue the instructions:
 > [!NOTE]
 > This section is optional. If you are using a customized dataset, please review this section. If you are using the default dataset, you can skip this.
 
-The datasets used for training and testing must be stored in the `offline_data/` folder. If you are using a customized dataset, please ensure it is stored in the `offline_data/` folder and has the same format as the following:
+The datasets used for training and testing must be saved as `.pkl` files in the `offline_data/` folder, and must have the same format as the following:
 ```python
 [
-    {
+    { # Trajecotry 1
         'observations': np.array([...]),      # Shape: (T, obs_dim)
         'actions': np.array([...]),           # Shape: (T, action_dim)
         'rewards': np.array([...]),           # Shape: (T, )
         'next_observations': np.array([...]), # Shape: (T, obs_dim)
         'terminals': np.array([...])          # Shape: (T, )
     },
-    ...
+    ... # Trajecotry 2
 ]
+# T is the trajectory length, obs_dim is the observation dimension, action_dim is the action dimension
 ```
 For verification, you can run:
 ```bash
@@ -91,9 +92,52 @@ If the dataset is legal, it will print "is legal"; otherwise, it will print "ill
 
 
 ### Train Macro Action Quantization Methods
-// MAQ+RLPD, MAQ+IQL, MAQ+DSAC
-// scripts/train.sh things here
+To reproduce the results in the paper, please run:
+```bash
+# For MAQ based methods
+# Section 5.2.2: MAQ+RLPD in door task (with macro action length=9 and codebook size=16)
+./scripts/train.sh --method "MAQ+RLPD" --sequence_length 9 --codebook_size 16 --environment "door-human-v1" --seed 1
 
+# Section 5.2.2: MAQ+IQL in door task (with macro action length=9 and codebook size=16)
+./scripts/train.sh --method "MAQ+IQL" --sequence_length 9 --codebook_size 16 --environment "door-human-v1" --seed 1
+
+# Section 5.2.2: MAQ+DSAC in door task (with macro action length=8 and codebook size=8)
+./scripts/train.sh --method "MAQ+DSAC" --sequence_length 8 --codebook_size 8 --environment "door-human-v1" --seed 1
+
+# For baseline methods
+# Section 5.2.2: SAC in door task
+./scripts/train.sh --method "SAC" --environment "door-human-v1" --seed 1
+
+# Section 5.2.2: RLPD in door task
+./scripts/train.sh --method "RLPD" --environment "door-human-v1" --seed 1
+
+# Section 5.2.2: IQL in door task
+./scripts/train.sh --method "IQL" --environment "door-human-v1" --seed 1
+```
+
+For detailed parameters, please refer to the following table:
+
+| Parameter | Flag | Description | Default |
+| :--- | :--- | :--- | :--- |
+| **Method** | `--method` | Training method (MAQ+RLPD, MAQ+IQL, MAQ+DSAC, SAC, RLPD, IQL) | `MAQ+RLPD` |
+| **Environment** | `-env`, `--environment` | D4RL environment name (e.g., door-human-v1, hammer-human-v1, pen-human-v1, relocate-human-v1) | `door-human-v1` |
+| **Sequence Length** | `-seqlen`, `--sequence_length` | Macro action length | `9`|
+| **Codebook Size** | `-cbsz`, `--codebook_size` | VQ-VAE codebook size | `16`|
+| **Seed** | `-s`, `--seed` | Random seed | `1`|
+| **Training Source** | `-trs`, `--training_source` | Training dataset path (relative to `offline_data/`) | `""` (Defaults to environment dataset provided by D4RL)|
+| **Testing Source** | `-tes`, `--testing_source` | Testing dataset path (relative to `offline_data/`) | `""` (Defaults to environment dataset provided by D4RL)|
+| **Tag** | `-t`, `--tag` | Tag for the experiment (e.g., date) | `""`|
+| **Auto Evaluate** | `--auto_evaluate` | Automatically evaluate the trained model after training | `False`|
+
+
+
+#### Training MAQ+RLPD and MAQ+DSAC
+
+#### Training MAQ+IQL and IQL
+
+#### Training SAC
+
+#### Training RLPD
 
 
 ### Train Baselines

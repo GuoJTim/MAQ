@@ -141,7 +141,7 @@ parser.add_argument('--seed', type=int, help='')
 parser.add_argument('--eval_agent', type=str, help='')
 parser.add_argument('--gpuid', type=str, help='')
 parser.add_argument('--render', type=bool, default=False, help='')
-parser.add_argument('--suffix', type=str, help='')
+parser.add_argument('--suffix', type=str, help='', default="")
 parser.add_argument('--model_path', type=str, help='')
 parser.add_argument('--training_dataset', type=str, default="",
                     help='Training dataset, must put your dataset in root/offline_data/')
@@ -1095,8 +1095,8 @@ def train(config: TrainConfig):
 
 @pyrallis.wrap()
 def load_IQL_agent(config: TrainConfig, env_id: str, model_path: str, seed: int, seqlen: int, k: int):
-
-    suffix = f"{suffix}"
+    # print(config.suffix)
+    suffix = f"{config.suffix}"
         
     config.vqvae_model_path = f"VQVAE/log/{args.env}_{suffix}/"
     config.prior_model_path = f"VQVAE/log/prior/{args.env}_{suffix}/"

@@ -22,8 +22,8 @@ usage() {
     echo "  -cbsz, --codebook_size      VQVAE codebook size"
     echo "  -s, --seed                  Seed for this experiment"
     echo " For custmized dataset, you must neither fill both training_source and testing_source nor leave them blank, otherwise the script will generate the default dataset automatically"
-    echo "  -trs, --training_source     Training dataset, must put your dataset in root/offline_data/, if you are using D4RL Adroit, you can leave this blank, default as <env>-human-v1 dataset"
-    echo "  -tes, --testing_source      Testing dataset, must put your dataset in root/offline_data/, if you are using D4RL Adroit, you can leave this blank, default as <env>-human-v1 dataset"
+    echo "  -trs, --training_source     Training dataset, must put your dataset in workspace/offline_data/, if you are using D4RL Adroit, you can leave this blank, default as <env>-human-v1 dataset"
+    echo "  -tes, --testing_source      Testing dataset, must put your dataset in workspace/offline_data/, if you are using D4RL Adroit, you can leave this blank, default as <env>-human-v1 dataset"
     echo "  -t, --tag                   Tag for this experiment (e.g., dates)"
     echo "  --auto_evaluate             Whether to automatically evaluate the trained model after training"
     exit 1
