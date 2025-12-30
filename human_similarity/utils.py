@@ -7,6 +7,7 @@ from human_similarity.agent_SB3 import *
 from human_similarity.agent_Rnd import *
 from human_similarity.agent_DSACMAQ import *
 from human_similarity.agent_RLPDMAQ import *
+from tensorboard.backend.event_processing import event_accumulator
 import re
 import glob
 

@@ -13,4 +13,7 @@ __pycache__/
 .container_root*
 .container_root/*
 
+evaluation_results*
+evaluation_results/*
+
 *lockfile*
