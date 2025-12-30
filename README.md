@@ -14,12 +14,19 @@ If you use this work for research, please consider citing our paper as follows:
 }
 ```
 
-## Results and Trained Models
+<img src="docs/imgs/maq_architecture.svg" width="100%" />
+
+We propose a human-likeness aware framework called Macro Action Quantization (MAQ) that consists of two components: (1) Human behavior distillation and (2) Reinforcement learning with Macro Actions.
+
+The following instructions are prepared for reproducing the main experiments in the paper.
+
+
+## Human-like Reinforcement Learning 
 <!-- // show the door task and hammer task, with and without MAQ in RLPD
 // in the door task mention that RLPD using back hand to open the door and MAQ+RLPD (our method) using a human like way to open the door 
 // in the hammer task mention that RLPD due to its the reward-drvien RL agent, they maximize the reward by hammering the nail faster leading not human like behaviors -->
 
-We compare our method (MAQ+RLPD) with the baseline (RLPD) on D4RL Adroit tasks.
+Human-like reinforcement learning remains underexplored in the RL community. Most research focuses on designing reward-driven agents; only a few studies investigate human-like RL that seeks both human-like behavior and optimal performance. But most of these methods rely on pre-defined behavior constraints or rule-based penalties, requiring substanital effort for handcrafed design.
 ### Door Task
 | MAQ+RLPD (Ours) | RLPD |
 |:---:|:---:|
@@ -33,14 +40,11 @@ We compare our method (MAQ+RLPD) with the baseline (RLPD) on D4RL Adroit tasks.
 
 ## Training Macro Action Quantization
 
-// MAQ Architecture figure
-// simply introduce the method 
-
-
-
 ### Prerequisites
 
 The program requires a Linux platform with at least one NVIDIA GPU to operate.
+
+### Build Programs
 
 ### Preprocessing Human Demonstrations
 // the dataset must store in the offline_data and can use ./offline_data/gen_offline_data.py to generate the dataset provided by d4rl
