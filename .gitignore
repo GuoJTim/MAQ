@@ -12,3 +12,5 @@ __pycache__/
 # Container root marker/dir
 .container_root*
 .container_root/*
+
+*lockfile*

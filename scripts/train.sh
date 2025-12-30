@@ -25,7 +25,7 @@ usage() {
     echo "  -trs, --training_source     Training dataset, must put your dataset in root/offline_data/, if you are using D4RL Adroit, you can leave this blank, default as <env>-human-v1 dataset"
     echo "  -tes, --testing_source      Testing dataset, must put your dataset in root/offline_data/, if you are using D4RL Adroit, you can leave this blank, default as <env>-human-v1 dataset"
     echo "  -t, --tag                   Tag for this experiment (e.g., dates)"
-    echo "  --auto_evaluate              Whether to automatically evaluate the trained model after training"
+    echo "  --auto_evaluate             Whether to automatically evaluate the trained model after training"
     exit 1
 }
 
@@ -323,6 +323,6 @@ if [ "$auto_evaluate" = true ]; then
         -cbsz "$codebook_size" \
         -s "$seed" \
         --tag "$tag" \
-        --trs "$training_source" \
-        --tes "$testing_source"
+        -trs "$training_source" \
+        -tes "$testing_source"
 fi
