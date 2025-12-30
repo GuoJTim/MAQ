@@ -43,12 +43,52 @@ Human-like reinforcement learning remains underexplored in the RL community. Mos
 ### Prerequisites
 
 The program requires a Linux platform with at least one NVIDIA GPU to operate.
+For training RLPD, the CUDA version must be newer than 12.0.
 
 ### Build Programs
 
-### Preprocessing Human Demonstrations
-// the dataset must store in the offline_data and can use ./offline_data/gen_offline_data.py to generate the dataset provided by d4rl
-// tell them the dataset format, and if using the customize dataset must change to that format
+Clone this repository with the required submodules:
+```bash
+git clone --recursive ..
+cd MAQ
+```
+
+Enter the container to continue the instructions:
+```bash
+# start the container
+./scripts/start-container.sh
+```
+
+> [!NOTE]
+> All the instructions must be executed in the container.
+
+### (Optional) Preprocessing Human Demonstrations
+<!-- // the dataset must store in the offline_data and can use ./offline_data/gen_offline_data.py to generate the dataset provided by d4rl
+// tell them the dataset format, and if using the customize dataset must change to that format -->
+
+
+> [!NOTE]
+> This section is optional. If you are using a customized dataset, please review this section. If you are using the default dataset, you can skip this.
+
+The datasets used for training and testing must be stored in the `offline_data/` folder. If you are using a customized dataset, please ensure it is stored in the `offline_data/` folder and has the same format as the following:
+```python
+[
+    {
+        'observations': np.array([...]),      # Shape: (T, obs_dim)
+        'actions': np.array([...]),           # Shape: (T, action_dim)
+        'rewards': np.array([...]),           # Shape: (T, )
+        'next_observations': np.array([...]), # Shape: (T, obs_dim)
+        'terminals': np.array([...])          # Shape: (T, )
+    },
+    ...
+]
+```
+For verification, you can run:
+```bash
+python3 offline_data/check_dataset_format.py --dataset_path "your_dataset.pkl"
+```
+If the dataset is legal, it will print "is legal"; otherwise, it will print "illegal: error_message".
+
 
 ### Train Macro Action Quantization Methods
 // MAQ+RLPD, MAQ+IQL, MAQ+DSAC
