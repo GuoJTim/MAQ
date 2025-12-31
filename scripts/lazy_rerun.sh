@@ -28,8 +28,8 @@ fi
 ############################################################
 ENVS=("door-human-v1" "pen-human-v1" "hammer-human-v1" "relocate-human-v1")
 METHODS=("MAQ+RLPD") # "MAQ+DSAC" "MAQ+IQL"
-SEQS=(1 3 6 9)
-KS=(8 16)
+SEQS=(1 2 3 4 5 6 7 8 9)
+KS=(16)
 SEEDS=(1 10 100)
 
 TAG=""
