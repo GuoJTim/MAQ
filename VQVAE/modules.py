@@ -175,3 +175,110 @@ class VectorQuantizedVAE(nn.Module):
         x_tilde = x_tilde.view(-1, self.seq_len, self.output_dim)
         return x_tilde.cpu().detach().numpy()
 
+
+
+class RawVectorQuantizedVAE(nn.Module):
+    """
+    Same as VectorQuantizedVAE but WITHOUT state-conditioning:
+      - encoder takes only x (flattened macro action): (B, seq_len * output_dim)
+      - decoder takes only quantized code z_q: (B, dim)
+    """
+    def __init__(self, seq_len=4, K=10, dim=32, output_dim=2):
+        super().__init__()
+        self.seq_len = seq_len
+        self.output_dim = output_dim
+
+        self.encoder = nn.Sequential(
+            nn.Linear(seq_len * output_dim, dim),
+            nn.ReLU(True),
+            nn.Linear(dim, dim),
+            nn.ReLU(True),
+            nn.Linear(dim, dim),  # (B, dim)
+        )
+
+        self.codebook = VQEmbedding(K, dim)
+
+        self.decoder = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(True),
+            nn.Linear(dim, dim),
+            nn.ReLU(True),
+            nn.Linear(dim, seq_len * output_dim),
+        )
+
+        self.apply(weights_init)
+
+    def encode(self, x):
+        """
+        x: (B, seq_len * output_dim)
+        returns:
+          indices (B,)
+        """
+        z_e = self.encoder(x)                 # (B, dim)
+        z_e = z_e.unsqueeze(2).unsqueeze(3)   # (B, dim, 1, 1)
+        _, _, indices = self.codebook.straight_through(z_e)
+        return indices
+
+    def decode(self, latents):
+        """
+        latents: (B,) code indices
+        returns:
+          x_tilde: (B, seq_len * output_dim)
+        """
+        z_q = torch.index_select(self.codebook.embedding.weight, dim=0, index=latents)  # (B, dim)
+        x_tilde = self.decoder(z_q)                                                    # (B, seq_len*output_dim)
+        return x_tilde
+
+    def forward(self, x):
+        """
+        x: (B, seq_len * output_dim)
+        returns:
+          x_tilde: (B, seq_len * output_dim)
+          z_e_x:   (B, dim, 1, 1)
+          z_q_x:   (B, dim, 1, 1)  (embedding lookup, no straight-through)
+          indices: (B,)
+        """
+        z_e_x = self.encoder(x)                    # (B, dim)
+        z_e_x = z_e_x.unsqueeze(2).unsqueeze(3)    # (B, dim, 1, 1)
+
+        z_q_x_st, z_q_x, indices = self.codebook.straight_through(z_e_x)
+        z_q_x_st = z_q_x_st.squeeze(2).squeeze(2)  # (B, dim)
+
+        x_tilde = self.decoder(z_q_x_st)           # (B, seq_len*output_dim)
+        return x_tilde, z_e_x, z_q_x, indices
+
+    @torch.no_grad()
+    def reinit_unused_codes(self, codebook_usage):
+        """
+        Same behavior as your VectorQuantizedVAE version.
+        codebook_usage: (K,) probabilities / counts normalized to probs.
+        """
+        device = codebook_usage.device
+        n = codebook_usage.shape[0]
+
+        unused_codes = torch.nonzero(
+            torch.eq(codebook_usage, torch.zeros(n, device=device, dtype=codebook_usage.dtype))
+        ).squeeze(1)
+
+        n_unused = unused_codes.shape[0]
+        if n_unused == 0:
+            return
+
+        print("Reinitializing unused codes:")
+        print(unused_codes)
+
+        replacements = torch.multinomial(codebook_usage, n_unused, replacement=True)
+        new_codes = self.codebook.embedding.weight[replacements]
+        self.codebook.embedding.weight[unused_codes] = new_codes
+
+    @torch.no_grad()
+    def forward_decoder(self, k_idx):
+        """
+        k_idx: (B,)
+        returns:
+          x_tilde: (B, seq_len, output_dim) as numpy
+        """
+        z_q = torch.index_select(self.codebook.embedding.weight, dim=0, index=k_idx)  # (B, dim)
+        x_tilde = self.decoder(z_q)                                                  # (B, seq_len*output_dim)
+        x_tilde = x_tilde.view(-1, self.seq_len, self.output_dim)
+        return x_tilde.cpu().detach().numpy()
