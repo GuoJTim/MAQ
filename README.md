@@ -49,7 +49,7 @@ For training RLPD, the CUDA version must be newer than 12.0.
 
 Clone this repository with the required submodules:
 ```bash
-git clone --recursive https://github.com/GuoJTim/MAQ.git
+git clone --recursive https://github.com/rlglab/maq
 
 cd MAQ
 ```

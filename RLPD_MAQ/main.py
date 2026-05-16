@@ -10,7 +10,6 @@ import os
 import math
 import random
 import time
-# os.environ["CUDA_VISIBLE_DEVICES"] = "3"  # Use only the first GPU
 """
 SUFFIX_BASE="_bind_source"
 if [ "$SEQLEN" -ne 3 ]; then
@@ -31,7 +30,7 @@ def set_seed(seed=None):
         random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)  # 如果使用多 GPU
+        torch.cuda.manual_seed_all(seed)  
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         g.manual_seed(seed)

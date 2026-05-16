@@ -146,15 +146,12 @@ def find_best_checkpoint_SAC(directory):
     
     print(f"Max reward: {max_reward}, Epoch: {max_epoch}")
     directory = directory + "/checkpoints"
-    # 在資料夾中搜尋對應的 zip 檔案
     best_checkpoint = None
     for file in os.listdir(directory):
-        # 匹配檔案命名格式: SAC_model_{epoch}_{reward}.zip
         match = re.match(r'SAC_model_(\d+)_(.*).zip', file)
         if match:
             file_epoch = int(match.group(1))
-            file_reward = int(match.group(2))  # 注意 reward 是整數
-            # 確認是否與找到的 epoch 和 reward 數值一致
+            file_reward = int(match.group(2)) 
             if file_epoch == max_epoch:
                 best_checkpoint = file
                 break
@@ -168,12 +165,6 @@ def find_best_checkpoint_SAC(directory):
 
 
 def export_all_scalars_to_csv_append(folder_path, csv_filename="experiment.csv"):
-    """
-    1) 搜尋指定資料夾下的所有 .tfevents 檔。
-    2) 讀取所有 scalar (tag, step, value)。
-    3) 以 'append' (a) 模式將新資料追加到同一個 CSV 檔底部。
-    """
-
     # 尋找所有 tfevents 檔案
     event_files = glob.glob(os.path.join(folder_path, "events.out.tfevents.*"))
     if not event_files:
@@ -211,21 +202,6 @@ def export_all_scalars_to_csv_append(folder_path, csv_filename="experiment.csv")
 def find_best_checkpoint_O2ORL(
     folder_path, csv_filename="experiment.csv", tag="eval/d4rl_normalized_score", min_step=1e6
 ):
-    """
-    根據 CSV 檔案和條件，尋找符合條件的 checkpoint。
-    1) 限制 step > min_step。
-    2) 找到指定 tag (如 eval/score) 最大 value 對應的 step。
-    3) 檢查同資料夾中是否存在 `checkpoint_{step}.pt`，若無則找距離最近的。
-
-    Args:
-        folder_path (str): 資料夾路徑，包含 CSV 與 checkpoint。
-        csv_filename (str): CSV 檔名 (預設: "experiment.csv")。
-        tag (str): 要篩選的標籤 (如: "eval/score")。
-        min_step (float): 限制 step 必須大於此值 (預設: 1e6)。
-
-    Returns:
-        str: 最佳 checkpoint 的完整路徑。
-    """
     # 1) 讀取 CSV 檔案
     csv_path = os.path.join(folder_path, csv_filename)
     if not os.path.isfile(csv_path):
@@ -277,24 +253,18 @@ def find_best_checkpoint_O2ORL(
 def find_best_returns_rlpd(csv_file_path, env, seeds=[1, 10, 100]):
     # 1. 讀取 CSV
     df = pd.read_csv(csv_file_path)
-    
-    # 2. 依據 env + seed 自動組出欄位名稱
-    #    欄位名稱格式為：「{env} seed {seed} - evaluation/return」
     result = {}
     for seed in seeds:
         col_name = f"{env} seed {seed} - evaluation/return"
         
-        # 如果在 CSV 裡找不到這個欄位，先跳過或做提示
         if col_name not in df.columns:
             print(f"警告：找不到欄位 {col_name}")
             continue
-        
-        # 3. 找出最大值所在的 index
+
         idx_of_max = df[col_name].idxmax()
         best_step = df.loc[idx_of_max, 'Step']
         best_value = df.loc[idx_of_max, col_name]
-        
-        # 4. 儲存結果
+
         result[seed] = (best_step, best_value)
     
     return result

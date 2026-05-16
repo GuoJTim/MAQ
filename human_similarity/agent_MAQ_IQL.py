@@ -9,6 +9,7 @@ sys.path.append("VQVAE")
 sys.path.append("IQL")
 from IQL.iql_MAQ import load_IQL_agent, load_IQL_and_decide_actions, load_IQL_and_decide_actions_time
 import time
+import yaml
 
 class MAQIQLAgent(AbstractAgent):
     save_time = False
@@ -16,21 +17,42 @@ class MAQIQLAgent(AbstractAgent):
     def load_agent(self, model_path, env_id):
         seed = self.get_seed(model_path)
         print(model_path)
-        default_k = 16
-        default_seqlen = 3
-        if "_k" in model_path:
-            k = model_path.split("_k")[1].split("_")[0]
+        
+        # Default values
+        k = 16
+        seqlen = 9
+        
+        # Try finding config.yaml in the parent directory of the model_path
+        # Assuming model_path is like .../IQLMAQ_seed1/IQLMAQ_seed1.pt
+        parent_dir = os.path.dirname(model_path)
+        config_path = os.path.join(parent_dir, "config.yaml")
+        
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    config = yaml.safe_load(f)
+                
+                if 'k' in config:
+                    k = config['k']
+                if 'seqlen' in config:
+                    seqlen = config['seqlen']
+                
+                print(f"Loaded config from {config_path}: k={k}, seqlen={seqlen}")
+            except Exception as e:
+                print(f"Error loading config.yaml: {e}")
         else:
-            k = default_k
-        if "_sq" in model_path:
-            seqlen = model_path.split("_sq")[1].split("_")[0]
-        else:
-            seqlen = default_seqlen
-        print(k,seqlen)
-        if k == "":
-            k = default_k
-        if seqlen == "":
-            seqlen = default_seqlen
+            print(f"No config.yaml found at {config_path}, using defaults or parsing path.")
+            # Fallback to path parsing if needed, or just stick to defaults as per user "if no ... use ..."
+            if "_k" in model_path:
+                 try:
+                     k = int(model_path.split("_k")[1].split("_")[0])
+                 except: pass
+            if "_sq" in model_path:
+                 try:
+                    seqlen = int(model_path.split("_sq")[1].split("_")[0])
+                 except: pass
+
+        print(k, seqlen)
         agent, _, self.state_mean, self.state_std, self.vqvae_model, self.prior_model = load_IQL_agent(model_path=model_path, env_id=env_id, seed=seed, k=k, seqlen=seqlen)
         return agent
         # return None, None, None, None, None, None

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MAQ Experiment Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Experiment Results</p>
+        <h1>MAQ Evaluation Dashboard</h1>
+      </div>
+      <div class="data-tools">
+        <label class="file-button">
+          <input id="csvFile" type="file" accept=".csv,text/csv" />
+          Load CSV
+        </label>
+        <button id="reloadDefault" type="button">Reload default</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="status-row">
+        <div id="status" class="status">Loading evaluation CSV...</div>
+      </section>
+
+      <section class="controls" aria-label="Dashboard controls">
+        <label>
+          Performance metric
+          <select id="performanceMetric"></select>
+        </label>
+        <label>
+          Human-likeness metric
+          <select id="humanMetric"></select>
+        </label>
+        <label>
+          Sort table by
+          <select id="sortMetric"></select>
+        </label>
+        <label>
+          Method
+          <select id="methodFilter"></select>
+        </label>
+        <label class="checkline">
+          <input id="showRuns" type="checkbox" />
+          Show seed rows
+        </label>
+        <label class="checkline">
+          <input id="useHumanBaseline" type="checkbox" />
+          Human-human distance
+        </label>
+      </section>
+
+      <section class="filter-panel" aria-label="Macro filters">
+        <div class="filter-group">
+          <div class="filter-title">Sequence</div>
+          <div id="sequenceFilterOptions" class="filter-options"></div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-title">Codebook</div>
+          <div id="codebookFilterOptions" class="filter-options"></div>
+        </div>
+      </section>
+
+      <section class="panel metric-guide-panel">
+        <details open>
+          <summary>
+            <span>Metric Guide</span>
+            <small id="metricGuideSummary"></small>
+          </summary>
+          <p class="metric-guide-note">
+            Distance and divergence metrics compare the agent trajectories with the human reference trajectories from the evaluator.
+          </p>
+          <div id="metricGuide" class="metric-guide"></div>
+        </details>
+      </section>
+
+      <section id="summary" class="summary-grid" aria-label="Summary"></section>
+
+      <section class="visual-grid">
+        <article class="panel wide">
+          <div class="panel-head">
+            <div>
+              <h2>Macro Sweep</h2>
+              <p id="performanceCaption">Grouped by method, sequence length, and codebook size.</p>
+            </div>
+          </div>
+          <div id="performanceChart" class="chart"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Reward / Similarity</h2>
+              <p id="tradeoffCaption">Y-axis uses normalized score; x-axis uses the chosen metric.</p>
+            </div>
+          </div>
+          <div id="tradeoffChart" class="chart"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Human Metric Sweep</h2>
+              <p id="humanChartCaption">Shows the chosen metric across macro sequence length.</p>
+            </div>
+            <label class="compact-control">
+              X axis
+              <select id="humanSweepAxis">
+                <option value="sequence">Sequence</option>
+                <option value="codebook">Codebook</option>
+              </select>
+            </label>
+          </div>
+          <div id="humanChart" class="chart"></div>
+        </article>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Ranked Experiments</h2>
+            <p id="tableCaption">Aggregated rows hide repeated seeds by default.</p>
+          </div>
+          <div class="table-actions">
+            <button id="toggleMetricPicker" type="button">Choose metrics</button>
+            <button id="downloadSummary" type="button">Download summary CSV</button>
+          </div>
+        </div>
+        <div id="metricPicker" class="metric-picker" hidden>
+          <div class="metric-picker-head">
+            <label>
+              Search metrics
+              <input id="metricSearch" type="search" placeholder="dtw, success, wasserstein..." />
+            </label>
+            <div class="metric-picker-actions">
+              <button id="selectCoreMetrics" type="button">Core</button>
+              <button id="selectAllMetrics" type="button">All</button>
+              <button id="clearMetrics" type="button">Clear</button>
+            </div>
+          </div>
+          <div id="metricChecklist" class="metric-checklist"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="resultsHead"></thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel ranking-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Most Human-Like Model</h2>
+            <p id="rankingCaption">Ranks experiments by first-place wins across the selected human-likeness metrics.</p>
+          </div>
+          <div class="table-actions">
+            <button id="toggleRankingMetricPicker" type="button">Choose ranking metrics</button>
+          </div>
+        </div>
+        <div id="rankingMetricPicker" class="metric-picker" hidden>
+          <div class="metric-picker-head">
+            <label>
+              Search ranking metrics
+              <input id="rankingMetricSearch" type="search" placeholder="dtw, mmd, frechet..." />
+            </label>
+            <div class="metric-picker-actions">
+              <button id="selectHumanRankingMetrics" type="button">Human metrics</button>
+              <button id="selectAllRankingMetrics" type="button">All</button>
+              <button id="clearRankingMetrics" type="button">Clear</button>
+            </div>
+          </div>
+          <div id="rankingMetricChecklist" class="metric-checklist"></div>
+        </div>
+        <div id="humanRanking" class="human-ranking"></div>
+      </section>
+    </main>
+    <div id="chartTooltip" class="chart-tooltip" hidden></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

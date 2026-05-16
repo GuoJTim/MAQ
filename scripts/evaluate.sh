@@ -93,8 +93,8 @@ if [ -f "offline_data/$training_source" ] && [ -f "offline_data/$testing_source"
     training_and_testing_source_exist=false
 else
     echo ""
-    training_source="$environement_name""_train_seed$seed""_ratio0.9.pkl"
-    testing_source="$environement_name""_test_seed$seed""_ratio0.9.pkl"
+    training_source="$environement_name""_train_seed$seed""_ratio0.5.pkl"
+    testing_source="$environement_name""_test_seed$seed""_ratio0.5.pkl"
     echo "Training source: $training_source"
     echo "Testing source: $testing_source"  
     default_generate=true
@@ -110,7 +110,7 @@ cd offline_data || exit
 rm -f error.txt
 
 echo "Checking dataset: $training_source and $testing_source"
-python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.9 
+python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.5 
 
 if [ -f "error.txt" ]; then
     echo "Error: $(cat error.txt)"

@@ -43,13 +43,6 @@ from torch.utils.data import Dataset, DataLoader
 
 class D4RLGameDataset(Dataset):
     def __init__(self, trajectories, sequence_length=4, normalize_reward=False, normalize=False, env=None):
-        """
-        初始化數據集，將多場遊戲壓縮成一個連續的數據集。
-
-        :param trajectories: List[Dict]，包含多場遊戲的數據 (如 observations, actions 等)
-        :param sequence_length: 每個序列的長度
-        :param config: 配置文件，包含 `normalize` 和 `normalize_reward` 設定
-        """
         self.sequence_length = sequence_length
 
         # 壓縮多個遊戲為單一連續數據
@@ -68,30 +61,24 @@ class D4RLGameDataset(Dataset):
             self.actions.append(traj['actions'])
             self.rewards.extend(traj['rewards'])
 
-        # 合併所有遊戲的數據
         self.observations = np.concatenate(self.observations, axis=0)
         self.actions = np.concatenate(self.actions, axis=0, dtype=np.float32)
         self.rewards = np.array(self.rewards, dtype=np.float32)
 
         self.reward_mod_dict = {}
-        # 檢查是否需要標準化 reward
         if normalize_reward:
             self.reward_mod_dict = modify_reward({"rewards": self.rewards}, env)
             self.rewards /= (self.reward_mod_dict["max_ret"] - self.reward_mod_dict["min_ret"])
             self.rewards *= self.reward_mod_dict["max_episode_steps"]
 
-        # 檢查是否需要標準化 states
         if normalize:
             state_mean, state_std = compute_mean_std(self.observations, eps=1e-3)
             self.observations = normalize_states(self.observations, state_mean, state_std)
         else:
-            state_mean, state_std = 0, 1  # 不進行標準化
-
-        # 記錄標準化參數
+            state_mean, state_std = 0, 1 
         self.state_mean = state_mean
         self.state_std = state_std
 
-        # 計算有效的數據範圍
         self.valid_indices = len(self.observations) - self.sequence_length + 1
     def get_state_mean(self):
         return self.state_mean
@@ -101,22 +88,12 @@ class D4RLGameDataset(Dataset):
         return self.state_std
     
     def __len__(self):
-        """
-        返回數據集的長度。
-        """
         return self.valid_indices
 
     def __getitem__(self, idx):
-        """
-        返回第 idx 個數據點，包含觀測序列和動作序列。
-
-        :param idx: 數據點的索引
-        :return: Tuple(obs_seq, acts_seq, reward_sum)
-        """
         obs_seq = self.observations[idx]
         acts_seq = self.actions[idx:idx + self.sequence_length]
 
-        # reward_sum 為該序列內 reward 的累加
         reward_sum = np.sum(self.rewards[idx:idx + self.sequence_length])
 
         return obs_seq, acts_seq, reward_sum
@@ -134,7 +111,6 @@ parser.add_argument('--seed', type=int, help='Random seed')
 parser.add_argument('--eval_agent', type=str, help='Evaluation agent')
 parser.add_argument('--gpuid', type=str, help='GPU ID')
 parser.add_argument('--render', type=bool, default=False, help='Render environment')
-# New arguments for path configuration
 parser.add_argument('--seqlen', type=int, default=9, help='Sequence length')
 parser.add_argument('--k', type=int, default=16, help='Codebook size')
 parser.add_argument('--suffix', type=str, default="", help='Custom suffix to append to paths')
@@ -151,10 +127,7 @@ envname = env
 training_dataset = args.training_dataset
 testing_dataset = args.testing_dataset
 
-# Construct suffix based on parameters similar to shell script pattern
-
 suffix = args.suffix
-print(f"Using suffix: {suffix}")
  
 @dataclass
 class TrainConfig:
@@ -187,7 +160,6 @@ class TrainConfig:
     # MAQ settings
     bm_loss_coefficient: float = 0.5
     suffix: str = f"{suffix}"
-    # Path configuration using provided arguments or constructed defaults
     vqvae_model_path: str = args.vqvae_path if args.vqvae_path else f"../VQVAE/log/{args.env}_{suffix}/"
     prior_model_path: str = args.prior_path if args.prior_path else f"../VQVAE/log/prior/{args.env}_{suffix}/"
     
@@ -268,39 +240,25 @@ class ReplayBuffer:
     # Loads from npk file
     # Loads data in d4rl format, i.e. from Dict[str, np.array].
     def load_d4rl_dataset(self, dataset, file_name, sequence_length=9):
-        # 透過文件讀取 trajectory 數據
-        
-        print("trajectories loaded")
-        # 利用 D4RLGameDataset 將 trajectory 數據轉為連續樣本
-        
-        print("Dataset loaded")
         n_transitions = len(dataset)
         if n_transitions > self._buffer_size:
             raise ValueError("Replay buffer is smaller than the dataset you are trying to load!")
         
-        # 用於存放轉移數據的列表
         states_list = []
         actions_list = []
         rewards_list = []
         next_states_list = []
         dones_list = []
         offline_datas = []
-        print(n_transitions)
-        # 循環遍歷 dataset，這裡將每個樣本視作一個 transition
-        # 取當前樣本的 obs 作為 state，取動作序列中的第一個動作作為 action，
-        # reward 為該樣本的累計 reward，next_state 為下一個樣本的 obs
         for i in range(n_transitions - 1):
             obs, acts_seq, reward_sum = dataset[i]
             next_obs, _, _ = dataset[i + 1]
             states_list.append(obs)
-            # 取第一個動作作為代表（也可以根據需要採用其他策略）
             actions_list.append(acts_seq)
             rewards_list.append(reward_sum)
             next_states_list.append(next_obs)
-            dones_list.append(0.0)  # 非 terminal
+            dones_list.append(0.0)  
             offline_datas.append(1.0)
-        
-        # 處理最後一個樣本，這裡將 next_state 設為與當前 state 相同，並標記為 terminal
         obs, acts_seq, reward_sum = dataset[n_transitions-1]
         states_list.append(obs)
         actions_list.append(acts_seq)
@@ -309,19 +267,16 @@ class ReplayBuffer:
         dones_list.append(1.0)
         offline_datas.append(1.0)
         
-        # 轉換為 NumPy 陣列
         states = np.array(states_list, dtype=np.float32)
         actions = np.array(actions_list, dtype=np.float32)
         rewards = np.array(rewards_list, dtype=np.float32)
         next_states = np.array(next_states_list, dtype=np.float32)
         dones = np.array(dones_list, dtype=np.uint8)
         offline_datas = np.array(offline_datas, dtype=np.uint8)
-        print(rewards)
         n = states.shape[0]
         if self._size + n > self._buffer_size:
             raise ValueError("Total transitions exceed replay buffer size!")
         
-        # 將數據加載到 replay buffer
         self._states[self._size: self._size + n] = self._to_tensor(states)
         self._actions[self._size: self._size + n] = self._to_tensor(actions)
         self._rewards[self._size: self._size + n] = self._to_tensor(rewards[..., None])
@@ -418,12 +373,7 @@ def eval_actor(
         goal_achieved = False
         
         while not done:
-            # state need to add batch?
-            # state = np.expand_dims(state, axis=0)  # add batch dimension
-            
-            index_action = actor.act(state, device) # argmax get the best idnex action
-            # print("EVAL ACTOR debug, index_action",index_action,index_action.shape)
-            # state = torch.from_numpy(state).to(device)
+            index_action = actor.act(state, device) 
             
 
             action = decoded_primitive_actions(
@@ -436,7 +386,6 @@ def eval_actor(
                 ,
                 vqvae_model
             )
-            # print(action.shape)
             for a in action[0]:
                 state, reward, done, env_infos = env.step(a)
                 episode_length += 1    
@@ -447,7 +396,6 @@ def eval_actor(
             episode_reward += reward
             if not goal_achieved:
                 goal_achieved = is_goal_reached(reward, env_infos)
-        # Valid only for environments with goal
         successes.append(float(goal_achieved))
         episode_rewards.append(episode_reward)
 
@@ -592,42 +540,10 @@ class PolicyValueFunction(nn.Module):
             nn.Linear(hidden_dim, act_dim),
         )
 
-        # self.qf1 = nn.Sequential(
-        #     nn.Linear(4 + act_dim, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, 1),
-        # )
-        # self.qf2 = nn.Sequential(
-        #     nn.Linear(4 + act_dim, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, 1),
-        # )
-        # self.vf = nn.Sequential(
-        #     nn.Linear(4, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, 1),
-        # )
-        # self.policy = nn.Sequential(
-        #     nn.Linear(4, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, hidden_dim),
-        #     nn.ReLU(True),
-        #     nn.Linear(hidden_dim, act_dim),
-        # )
-
     def forward(self, state, action=None):
         x = state
-        # x = state
         if action is not None:
             a = F.one_hot(action.long(), num_classes=self.action_dim).float()
-            # print(a.shape)
-            # print(x.shape)
             x1 = torch.cat([x, a], 1)
             q1 = self.qf1(x1).squeeze(1)
             q2 = self.qf2(x1).squeeze(1)
@@ -640,12 +556,9 @@ class PolicyValueFunction(nn.Module):
     
     @torch.no_grad()
     def act(self, state: np.ndarray, device: str = "cpu"):
-        # add batch dimension
         state = np.expand_dims(state, axis=0)
         state = torch.tensor(state, device=device, dtype=torch.float32)
         logits = self.policy(state)
-        # logits = self.policy(state)
-        # return the best action
         return torch.argmax(logits, dim=1).cpu().numpy()[0]
 
 class MAQImplicitQLearning:
@@ -671,7 +584,6 @@ class MAQImplicitQLearning:
 
         self.total_it = 0
         self.device = device
-        print("init")
         self.config = config
 
 
@@ -689,36 +601,18 @@ class MAQImplicitQLearning:
         vqvae_model: VectorQuantizedVAE,
         OFFLINE_STAGE: torch.Tensor
     ):
-        # actions = actions.squeeze(1) # orginal actions
         terminals = terminals.squeeze(1)
         rewards = rewards.squeeze(1)
-        ## get (index) action from VQVAE
-        # print(actions.shape,actions,"offline:",OFFLINE_STAGE)
-        
-        # in the batch may have either online or offline data, online is actually index action, but offline is real actions
-        offline_mask = OFFLINE_STAGE.bool()  # 轉換為布林值 [B, 1]
-        # print(">>>",actions[:, 0, 0].shape,"<<<")
-        direct_index_action = actions[:, 0, 0].unsqueeze(1)  # [B] -> [B, 1]
-        # print(actions)
-        actions = actions.view(actions.size(0), -1) # 9 * 28
-        # print(offline_mask.shape) #[32 , 1]
+
+        offline_mask = OFFLINE_STAGE.bool()  
+        direct_index_action = actions[:, 0, 0].unsqueeze(1) 
+        actions = actions.view(actions.size(0), -1) 
         
         
         _, _, _, vqvae_index_action = vqvae_model(observations, actions)
-        vqvae_index_action = vqvae_index_action.unsqueeze(1)  # 確保形狀為 [B, 1]
+        vqvae_index_action = vqvae_index_action.unsqueeze(1)  
+        index_actions = torch.where(offline_mask, vqvae_index_action, direct_index_action).squeeze(1) 
         
-        index_actions = torch.where(offline_mask, vqvae_index_action, direct_index_action).squeeze(1) # [B,1] -> [B]
-        # print(direct_index_action)
-        # print(index_actions)
-        
-        
-        # print(index_actions.shape)
-        # print("VQVAE",vqvae_index_action.shape)
-        # print(index_actions)
-         
-        # print("OBS",observations.shape)
-        # print("(INDEX) ACTION",index_actions.shape)
-        # Update value function
         with torch.no_grad():
             _, _, q1, q2 = self.q_target(observations, index_actions)
             target_q = torch.min(q1, q2)
@@ -730,38 +624,25 @@ class MAQImplicitQLearning:
         log_dict["adv"] = adv.mean().item()
         v_loss = asymmetric_l2_loss(adv, self.iql_tau)
         log_dict["value_loss"] = v_loss.item()
-        # print("A")
-        # Update Q function
         with torch.no_grad():
             _, next_v, _, _ = self.actor(next_observations)
             next_q = rewards + (1.0 - terminals.float()) * self.discount * next_v
         assert q1_pred.shape == q2_pred.shape == next_q.shape
         q_loss = (F.mse_loss(q1_pred, next_q) + F.mse_loss(q2_pred, next_q)) / 2
         log_dict["q_loss"] = q_loss.item()
-        # print("B")
-        # Update policy function
         exp_adv = torch.exp(self.beta * adv.detach()).clamp(max=EXP_ADV_MAX)
         log_probs = torch.distributions.Categorical(logits=logits).log_prob(index_actions)
         actor_loss = torch.mean(-log_probs * exp_adv)
         log_dict["actor_loss"] = actor_loss.item()
-        # print("C")
-        # print(torch.from_numpy(observations).to(config.device, dtype=torch.float32))
-        # update with behavior policy KLD
-        # print(observations.shape)
+
         target_logits = prior_model(observations)
-        # debug
-        # print(target_logits.shape)
-        # print(logits.shape)
         
         kl_loss = nn.KLDivLoss(reduction="batchmean", log_target=True)
         kl_div = kl_loss(F.log_softmax(logits, dim=1), F.log_softmax(target_logits.detach(), dim=1))
-        # debug
-        # print("kl loss",kl_div)
+
 
 
         loss = v_loss + q_loss + actor_loss + self.config.bm_loss_coefficient * kl_div
-        # loss = kl_div
-        # print("total {0:.5f} vloss {1:.5f} qloss {2:.5f} act loss {3:.5f} kl loss {4:.5f}".format(loss.item(),v_loss.item(),q_loss.item(),actor_loss.item(),self.config.bm_loss_coefficient * kl_div.item()))
         log_dict["loss"] = loss.item()
         self.actor_optimizer.zero_grad()
         loss.backward()
@@ -788,9 +669,6 @@ class MAQImplicitQLearning:
         log_dict = {}
         self._update(observations, actions, rewards, next_observations, dones, log_dict, prior_model, vqvae_model, OFFLINE_STAGE)
 
-        # # Update target Q network
-        # if self.total_it % 10 == 0:
-        #     hard_update(self.q_target, self.actor)
 
         return log_dict
 
@@ -814,59 +692,38 @@ class MAQImplicitQLearning:
 
 
 
-# Rest of the code remains the same...
-# ... [include all other classes and functions as in the original file] ...
-
 @pyrallis.wrap()
 def load_IQL_agent(config: TrainConfig, env_id: str, model_path: str, seed: int):
     # Use the paths directly from config instead of reconstructing them
     config.env = envname
-    print(config.env)
-    
-    print("init program")
-
     observations, actions = load_data(config.env, config.seed)
-    print(config.env, config.seed)
+
     
     vqvae_config = json.load(open(os.path.join(config.vqvae_model_path, 'config.json')))
     vqvae_model = VectorQuantizedVAE(state_dim=observations.shape[1], seq_len=vqvae_config['sequence_length'], K=vqvae_config['k'], dim=vqvae_config['hidden_size'], output_dim=actions.shape[1]).to(config.device)
-    print(observations.shape[1],actions.shape[1])
-    # loading the last 
     ls = [filename for filename in os.listdir(config.vqvae_model_path) if filename.endswith(".pth") ]
-    
-    # Sort checkpoints by epoch number
+
     sorted_checkpoints = sorted(ls, key=lambda x: int(x.split('_')[1]))
     
-    # Get the last epoch filename
     last_vqvae_cp = sorted_checkpoints[-1]
-    print("loaded vqvae model",last_vqvae_cp)
     load(vqvae_model, os.path.join(config.vqvae_model_path, last_vqvae_cp))
     vqvae_model.eval()
-    print("VQVAE model loaded.")
-    # load the prior model
     prior_model = PriorNet(state_dim=observations.shape[1], hidden_dim=vqvae_config['hidden_size'], output_K=vqvae_config['k']).to(config.device)
     
-    # loading the last 
+
     ls = [filename for filename in os.listdir(config.prior_model_path) if filename.endswith(".pth") ]
     
-    # Sort checkpoints by epoch number
+
     sorted_checkpoints = sorted(ls, key=lambda x: int(x.split('_')[2]))
     
-    # Get the last epoch filename
     last_prior_cp = sorted_checkpoints[-1]
-    print("loaded prior model",last_prior_cp)
     load(prior_model, os.path.join(config.prior_model_path,last_prior_cp))
     prior_model.eval()
-    print("Prior model loaded.\n")
     N_action = vqvae_config['k']
     sequence_length = vqvae_config['sequence_length']
-    
-    print("num macro action: ", N_action)
-
-    if config.normalize: # not using normalized state
+    if config.normalize: 
         state_mean, state_std = 0, 1
         pass
-        #state_mean, state_std = compute_mean_std(dataset["observations"], eps=1e-3)
     else:
         state_mean, state_std = 0, 1
 
@@ -902,15 +759,11 @@ def load_IQL_agent(config: TrainConfig, env_id: str, model_path: str, seed: int)
 
     return trainer, eval_env, state_mean, state_std, vqvae_model, prior_model
 
-# Include all remaining functions and classes from the original file
-# ...
 
 @pyrallis.wrap()
 def train(config: TrainConfig):
     global envname
     config.env = envname 
-    
-    print("init program")
 
     observations, actions = load_data(config.env, config.seed)
     
@@ -918,61 +771,40 @@ def train(config: TrainConfig):
     vqvae_model = VectorQuantizedVAE(state_dim=observations.shape[1], seq_len=vqvae_config['sequence_length'], 
                                      K=vqvae_config['k'], dim=vqvae_config['hidden_size'], 
                                      output_dim=actions.shape[1]).to(config.device)
-    print(observations.shape[1], actions.shape[1])
-    
-    # loading the last VQVAE checkpoint
+
     ls = [filename for filename in os.listdir(config.vqvae_model_path) if filename.endswith(".pth")]
     
-    # Sort checkpoints by epoch number
     sorted_checkpoints = sorted(ls, key=lambda x: int(x.split('_')[1]))
     
-    # Get the last epoch filename
     last_vqvae_cp = sorted_checkpoints[-1]
-    print("loaded vqvae model", last_vqvae_cp)
     load(vqvae_model, os.path.join(config.vqvae_model_path, last_vqvae_cp))
     vqvae_model.eval()
-    print("VQVAE model loaded.")
     
-    # load the prior model
     prior_model = PriorNet(state_dim=observations.shape[1], hidden_dim=vqvae_config['hidden_size'], 
                           output_K=vqvae_config['k']).to(config.device)
     
-    # loading the last prior checkpoint
     ls = [filename for filename in os.listdir(config.prior_model_path) if filename.endswith(".pth")]
     
-    # Sort checkpoints by epoch number
     sorted_checkpoints = sorted(ls, key=lambda x: int(x.split('_')[2]))
     
-    # Get the last epoch filename
     last_prior_cp = sorted_checkpoints[-1]
-    print("loaded prior model", last_prior_cp)
     load(prior_model, os.path.join(config.prior_model_path, last_prior_cp))
     prior_model.eval()
-    print("Prior model loaded.\n")
     N_action = vqvae_config['k']
     sequence_length = vqvae_config['sequence_length']
-    
-    print("num macro action: ", N_action)
-    
-    # Create environments
-    print(config.env)
+
     env = gym.make(config.env)
     eval_env = gym.make(config.env)
 
-    # Check if environment has a goal
     is_env_with_goal = config.env.startswith(ENVS_WITH_GOAL)
 
     max_steps = env._max_episode_steps
 
-    # Get dimensions
     state_dim = env.observation_space.shape[0]
-    action_dim = env.action_space.shape[0]  # action
-
-    # Load and prepare dataset
+    action_dim = env.action_space.shape[0]  
     reward_mod_dict = {}
     file_name = f"../offline_data/{training_dataset}"
     
-    print(f"Loading data from {file_name}")
     trajectories = load_trajectories(file_name)
     dataset = D4RLGameDataset(trajectories, sequence_length=sequence_length,
                                 normalize_reward=config.normalize_reward, 
@@ -981,11 +813,9 @@ def train(config: TrainConfig):
     state_std = dataset.get_state_std()
     reward_mod_dict = dataset.get_reward_mod_dict()
     
-    # Wrap environments with normalization if needed
     env = wrap_env(env, state_mean=state_mean, state_std=state_std)
     eval_env = wrap_env(eval_env, state_mean=state_mean, state_std=state_std)
     
-    # Create replay buffer and load dataset
     replay_buffer = ReplayBuffer(
         state_dim,
         action_dim,
@@ -993,22 +823,18 @@ def train(config: TrainConfig):
         config.device,
         seq_len=sequence_length
     )
-    print(f"Loading data from {file_name}")
     replay_buffer.load_d4rl_dataset(dataset, file_name=file_name, sequence_length=sequence_length)
 
 
-    # Set up logging
     if config.checkpoints_path is not None:
         print(f"Checkpoints path: {config.checkpoints_path}")
         os.makedirs(config.checkpoints_path, exist_ok=True)
         with open(os.path.join(config.checkpoints_path, "config.yaml"), "w") as f:
             pyrallis.dump(config, f)
     
-    # Create actor and optimizer
     actor = PolicyValueFunction(state_dim=state_dim, act_dim=N_action).to(config.device)
     actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.lr)
 
-    # Create trainer
     kwargs = {
         "actor": actor,
         "actor_optimizer": actor_optimizer,
@@ -1180,7 +1006,6 @@ def train(config: TrainConfig):
                 writer.add_scalar(key, value, trainer.total_it)
 
 def load_trajectories(file):
-    """從檔案加載 trajectory 數據"""
     with open(file, 'rb') as f:
         return pickle.load(f)
 

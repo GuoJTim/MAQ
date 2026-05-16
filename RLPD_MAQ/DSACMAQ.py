@@ -15,7 +15,6 @@ from RLPD_MAQ.base_agent import DiscreteSACAgent, Actor, Critic
 from RLPD_MAQ.models.networks import PPONetSimple
 from RLPD_MAQ.replay_buffer.replay_buffer import ReplayMemory
 from VQVAE.modules import VectorQuantizedVAE
-# from VQVAE.prior_train import PriorNet
 from VQVAE.vqvae_train import save, load
 from VQVAE.dataset import load_data
 
@@ -25,7 +24,6 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 import gym
 import d4rl
-# os.environ["CUDA_VISIBLE_DEVICES"] = "3"  
 
 
 
@@ -35,56 +33,25 @@ class MAQDSACAgent(DiscreteSACAgent):
 	def __init__(self, config):
 		super(MAQDSACAgent, self).__init__(config)
 		self.config = config
-		# load the VQVAE model
 		observations, actions = load_data(self.config["env_id"],self.config["seed"])
 		vqvae_config = json.load(open(os.path.join(config['vqvae_model_path'], 'config.json')))
 		self.vqvae_config = vqvae_config
 		self.vqvae_model = VectorQuantizedVAE(state_dim=observations.shape[1], seq_len=vqvae_config['sequence_length'], K=vqvae_config['k'], dim=vqvae_config['hidden_size'], output_dim=actions.shape[1]).to(self.device)
 		
 		
-		# loading the last 
 		ls = [filename for filename in os.listdir(config['vqvae_model_path']) if filename.endswith(".pth") ]
 		
 
-
-		# Sort checkpoints by epoch number
 		sorted_checkpoints = sorted(ls, key=lambda x: int(x.split('_')[1]))
 
-		# Get the last epoch filename
 		last_vqvae_cp = sorted_checkpoints[-1]
 
-		print("loaded vqvae model",last_vqvae_cp)
 		
 		load(self.vqvae_model, os.path.join(config['vqvae_model_path'], last_vqvae_cp ))
 		self.vqvae_model.eval()
-		print("VQVAE model loaded.")
-		# load the prior model
-
-		# loading the last 
-		# ls = [filename for filename in os.listdir(config['prior_model_path']) if filename.endswith(".pth") ]
-		
-
-
-		# # Sort checkpoints by epoch number
-		# sorted_checkpoints = sorted(ls, key=lambda x: int(x.split('_')[2]))
-
-		# # Get the last epoch filename
-		# last_prior_cp = sorted_checkpoints[-1]
-
-		# print("loaded prior model",last_prior_cp)
-
-
-
-
-		# self.prior_model = PriorNet(state_dim=observations.shape[1], hidden_dim=vqvae_config['hidden_size'], output_K=vqvae_config['k']).to(self.device)
-		# load(self.prior_model, os.path.join(config['prior_model_path'],last_prior_cp))
-		# self.prior_model.eval()
-		# print("Prior model loaded.")
 
 		self.seed = config["seed"] if "seed" in config else int(time.time())
 		self.N_action = vqvae_config['k']
-		print("num macro action: ", self.N_action)
-		# create the environment
 		self.env = gym.vector.AsyncVectorEnv(
 			[
 				lambda: MacroActionEnvWrapper(self.config["env_id"], self.N_action, seed=self.config['seed']+i) for i in range(self.num_envs) 
@@ -102,9 +69,7 @@ class MAQDSACAgent(DiscreteSACAgent):
 		
   
 
-		# Initialize SAC networks using the helper from the base class
 		state_dim = observations.shape[1]
-		# Use learning rates from config or default
 		actor_lr = config.get("actor_lr", 3e-4)
 		critic_lr = config.get("critic_lr", 1e-3)
 		self._initialize_networks(Actor, Critic, state_dim, self.N_action,
@@ -112,7 +77,6 @@ class MAQDSACAgent(DiscreteSACAgent):
 								  actor_lr=actor_lr,
 								  critic_lr=critic_lr)
 
-        # Removed prior weights loading for actor (not needed for DSAC)
 
 		self.set_seed(self.seed)
 		if "store_init" in config and config["store_init"]:
@@ -149,13 +113,7 @@ class MAQDSACAgent(DiscreteSACAgent):
 				# Only convert to numpy if it's a tensor
 				decoded_actions = decoded_actions.cpu().detach().numpy()
 			return decoded_actions
-	
-	# def prior_referenced_logits(self, states):
-	# 	# Ensure input is a tensor
-	# 	if isinstance(states, np.ndarray):
-	# 		states = torch.from_numpy(states).to(self.device, dtype=torch.float32)
-	# 	pred = self.prior_model(states)
-	# 	return pred
+
 		
 	# Let's refine action selection to optionally return logits for evaluation
 	def decide_agent_actions_with_logits(self, observation, eval=True):

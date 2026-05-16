@@ -221,8 +221,8 @@ if [ "$training_method" == "MAQ+DSAC" ] || [ "$training_method" == "MAQ+RLPD" ] 
         training_and_testing_source_exist=false
     else
         echo ""
-        training_source="$environement_name""_train_seed$seed""_ratio0.9.pkl"
-        testing_source="$environement_name""_test_seed$seed""_ratio0.9.pkl"
+        training_source="$environement_name""_train_seed$seed""_ratio0.5.pkl"
+        testing_source="$environement_name""_test_seed$seed""_ratio0.5.pkl"
         echo "Training source: $training_source"
         echo "Testing source: $testing_source"  
         default_generate=true
@@ -234,9 +234,9 @@ if [ "$training_method" == "MAQ+DSAC" ] || [ "$training_method" == "MAQ+RLPD" ] 
     
     echo "Checking dataset: $training_source and $testing_source"
     if [ "$default_generate" = true ]; then
-        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.9 --default_generate 
+        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.5 --default_generate 
     else
-        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.9 
+        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.5 
     fi
     
 
@@ -281,8 +281,8 @@ elif [ "$training_method" == "IQL" ]; then
         training_and_testing_source_exist=false
     else
         echo ""
-        training_source="$environement_name""_train_seed$seed""_ratio0.9.pkl"
-        testing_source="$environement_name""_test_seed$seed""_ratio0.9.pkl"
+        training_source="$environement_name""_train_seed$seed""_ratio0.5.pkl"
+        testing_source="$environement_name""_test_seed$seed""_ratio0.5.pkl"
         echo "Training source: $training_source"
         echo "Testing source: $testing_source"  
         default_generate=true
@@ -294,9 +294,9 @@ elif [ "$training_method" == "IQL" ]; then
     
     echo "Checking dataset: $training_source and $testing_source"
     if [ "$default_generate" = true ]; then
-        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.9 --default_generate 
+        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.5 --default_generate 
     else
-        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.9 
+        python gen_offline_data.py --env $environement_name --seed $seed --training_dataset_name $training_source --testing_dataset_name $testing_source --train_ratio 0.5 
     fi
 
     cd ..

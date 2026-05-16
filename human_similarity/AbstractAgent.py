@@ -17,7 +17,6 @@ class AbstractAgent(ABC):
         self.agent = self.load_agent(model_path, env_id)
     
     def _init_csv(self, header):
-        """Initialize CSV file with headers"""
         if not self.inited:
             csv_exists = os.path.exists(self.time_csv)
             with open(self.time_csv, 'a', newline='') as csvfile:
@@ -27,7 +26,6 @@ class AbstractAgent(ABC):
             self.inited = True
     
     def _save_timing_to_csv(self, inference_time):
-        """Save timing data to CSV file"""
         if self.save_time:
             self._init_csv(['timestamp', 'inference_time_seconds'])
             with open(self.time_csv, 'a', newline='') as csvfile:
@@ -35,7 +33,6 @@ class AbstractAgent(ABC):
                 writer.writerow([time.time(), inference_time])
     
     def _save_detailed_timing_to_csv(self, policy_time, vqvae_time=None, total_time=None):
-        """Save detailed timing data to CSV file"""
         if self.save_time:
             self._init_csv(['timestamp', 'policy_time_seconds', 'vqvae_time_seconds', 'total_time_seconds'])
             with open(self.time_csv, 'a', newline='') as csvfile:
@@ -47,21 +44,15 @@ class AbstractAgent(ABC):
     
     @abstractmethod
     def load_agent(self, model_path, env_id):
-        """加載 agent 的抽象方法"""
         pass
     
     @abstractmethod
     def inference(self, state):
-        """推理方法"""
         pass
     
 class FlexibleAgentInterface:
     def __init__(self, agent_class, model_path, env_id, tag=""):
-        """
-        :param agent_class: 具體 agent 的類型 (如 MAQReg1Agent, MAQReg2Agent)
-        :param model_path: 模型路徑
-        :param env_id: 環境 ID
-        """
+
         self.model_path = model_path
         self.env_id = env_id
         self.init = False
@@ -205,19 +196,6 @@ class FlexibleAgentInterface:
             full_name += "_LAMBDA_1.0"
         elif "MAQ" in self.agent_class.__name__ and "c0" in self.model_path:
             full_name += "_LAMBDA_0.0"
-        elif "AWAC" in self.agent_class.__name__:
-            step = int(self.model_path.split("_")[-1].replace(".pt",""))
-            if step >= 1e6:
-                full_name += "_ONLINE"
-            else:
-                full_name += "_OFFLINE"
-        
-        elif "IQL" in self.agent_class.__name__:
-            step = int(self.model_path.split("_")[-1].replace(".pt",""))
-            if step >= 1e6:
-                full_name += "_ONLINE"
-            else:
-                full_name += "_OFFLINE"
         
         full_name += self.tag
         if "Top1" in self.model_path:

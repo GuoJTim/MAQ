@@ -26,10 +26,10 @@ fi
 ############################################################
 # 1) Grid
 ############################################################
-ENVS=("door-human-v1" "pen-human-v1" "hammer-human-v1" "relocate-human-v1")
+ENVS=("door-human-v1")
 METHODS=("MAQ+RLPD") # "MAQ+DSAC" "MAQ+IQL"
 SEQS=(1 2 3 4 5 6 7 8 9)
-KS=(16)
+KS=(32 64)
 SEEDS=(1 10 100)
 
 TAG=""

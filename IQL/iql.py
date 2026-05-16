@@ -50,7 +50,6 @@ env = args.env
 envname = env
 training_dataset = args.training_dataset
 testing_dataset = args.testing_dataset
-print(envname)
 
 @dataclass
 class TrainConfig:
@@ -184,7 +183,6 @@ class ReplayBuffer:
         self._size += n_transitions
         self._pointer = min(self._size, n_transitions)
 
-        print(f"Dataset size: {n_transitions}")
 
     def sample(self, batch_size: int) -> TensorBatch:
         indices = np.random.randint(0, self._size, size=batch_size)
@@ -633,7 +631,6 @@ def load_trajectories(file):
 def train(config: TrainConfig):
     global envname
     config.env =envname 
-    print(config.env)
     env = gym.make(config.env)
     eval_env = gym.make(config.env)
 
@@ -677,7 +674,6 @@ def train(config: TrainConfig):
     max_action = float(env.action_space.high[0])
 
     if config.checkpoints_path is not None:
-        print(f"Checkpoints path: {config.checkpoints_path}")
         os.makedirs(config.checkpoints_path, exist_ok=True)
         with open(os.path.join(config.checkpoints_path, "config.yaml"), "w") as f:
             pyrallis.dump(config, f)
@@ -891,7 +887,6 @@ def load_IQL_agent(config: TrainConfig, env_id: str, model_path: str):
     }
 
     trainer = ImplicitQLearning(**kwargs)
-    print(model_path)
     trainer.load_state_dict(torch.load(model_path, map_location=torch.device("cuda")))
 
     return trainer, eval_env, state_mean, state_std

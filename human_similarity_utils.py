@@ -16,7 +16,6 @@ import ot
 
 sys.path.append('../offline_data')
 def load_trajectories_W(file):
-    """從檔案加載 trajectory 數據"""
     with open(file, 'rb') as f:
         return pickle.load(f)
 
@@ -65,22 +64,199 @@ def compute_wasserstein_distance_multiple(agent_trajs, expert_trajs):
     return w2_dist
 
 
+def _state_action_occupancy_samples(states, actions):
+    states = np.asarray(states)
+    actions = np.asarray(actions)
 
-# Add project directories to sys.path if needed (adjust paths as necessary)
-# sys.path.append("RL")
-# sys.path.append("VQVAE")
-# sys.path.append("O2ORL")
-# sys.path.append("human_similarity") # Assuming utils.py might be needed later
+    if states.size == 0 or actions.size == 0:
+        return np.empty((0, 0))
 
-# Potential imports from other project modules (uncomment if needed)
-# from human_similarity.utils import get_MAQ_agent, ... # Example
-# from RL.utils import wrap_gym # Example if wrap_gym is defined there
-# from ws_dist import compute_wasserstein_distance_multiple # Example
+    if states.ndim == 1:
+        states = states.reshape(-1, 1)
+    if actions.ndim == 1:
+        actions = actions.reshape(-1, 1)
 
-# Helper function to initialize environment based on agent type (example)
+    sample_count = min(len(states), len(actions))
+    if sample_count == 0:
+        return np.empty((0, states.shape[-1] + actions.shape[-1]))
+
+    return np.concatenate([states[:sample_count], actions[:sample_count]], axis=1)
+
+
+def _deterministic_subsample(samples, max_samples, seed):
+    if len(samples) <= max_samples:
+        return samples
+
+    rng = np.random.default_rng(seed)
+    indices = np.sort(rng.choice(len(samples), size=max_samples, replace=False))
+    return samples[indices]
+
+
+def _pairwise_squared_distances(x, y):
+    x_sq = np.sum(np.square(x), axis=1, keepdims=True)
+    y_sq = np.sum(np.square(y), axis=1, keepdims=True).T
+    distances = x_sq + y_sq - 2.0 * np.dot(x, y.T)
+    return np.maximum(distances, 0.0)
+
+
+def _rbf_mmd_squared(x, y):
+    combined = np.concatenate([x, y], axis=0)
+    bandwidth_samples = _deterministic_subsample(combined, max_samples=1000, seed=17)
+    bandwidth_dists = _pairwise_squared_distances(bandwidth_samples, bandwidth_samples)
+    positive_dists = bandwidth_dists[bandwidth_dists > 0]
+    bandwidth_sq = np.median(positive_dists) if positive_dists.size > 0 else 1.0
+    if not np.isfinite(bandwidth_sq) or bandwidth_sq <= 0:
+        bandwidth_sq = 1.0
+
+    gamma = 1.0 / (2.0 * bandwidth_sq)
+    k_xx = np.exp(-gamma * _pairwise_squared_distances(x, x)).mean()
+    k_yy = np.exp(-gamma * _pairwise_squared_distances(y, y)).mean()
+    k_xy = np.exp(-gamma * _pairwise_squared_distances(x, y)).mean()
+    return max(float(k_xx + k_yy - 2.0 * k_xy), 0.0)
+
+
+def _as_2d_trajectory(traj):
+    traj = np.asarray(traj)
+    if traj.size == 0:
+        return np.empty((0, 0))
+    if traj.ndim == 1:
+        traj = traj.reshape(-1, 1)
+    return traj
+
+
+def _scaled_pair_trajectories(traj_a, traj_b):
+    traj_a = _as_2d_trajectory(traj_a)
+    traj_b = _as_2d_trajectory(traj_b)
+
+    if traj_a.size == 0 or traj_b.size == 0:
+        return None, None
+    if traj_a.shape[1] != traj_b.shape[1]:
+        return None, None
+
+    scaler = StandardScaler()
+    combined = np.concatenate([traj_a, traj_b], axis=0)
+    scaler.fit(combined)
+    return scaler.transform(traj_a), scaler.transform(traj_b)
+
+
+def _discrete_frechet_distance(traj_a, traj_b):
+    traj_a, traj_b = _scaled_pair_trajectories(traj_a, traj_b)
+    if traj_a is None or traj_b is None:
+        return np.inf
+
+    distances = np.sqrt(_pairwise_squared_distances(traj_a, traj_b))
+    cache = np.empty(distances.shape, dtype=np.float64)
+
+    for i in range(distances.shape[0]):
+        for j in range(distances.shape[1]):
+            if i == 0 and j == 0:
+                cache[i, j] = distances[i, j]
+            elif i == 0:
+                cache[i, j] = max(cache[i, j - 1], distances[i, j])
+            elif j == 0:
+                cache[i, j] = max(cache[i - 1, j], distances[i, j])
+            else:
+                cache[i, j] = max(
+                    min(cache[i - 1, j], cache[i - 1, j - 1], cache[i, j - 1]),
+                    distances[i, j]
+                )
+
+    return float(cache[-1, -1])
+
+
+def _trajectory_mse_with_length_penalty(traj_a, traj_b):
+    traj_a, traj_b = _scaled_pair_trajectories(traj_a, traj_b)
+    if traj_a is None or traj_b is None:
+        return np.inf
+
+    aligned_length = min(len(traj_a), len(traj_b))
+    if aligned_length == 0:
+        return np.inf
+
+    aligned_mse = np.mean(np.square(traj_a[:aligned_length] - traj_b[:aligned_length]))
+    length_penalty = 1.0 + abs(len(traj_a) - len(traj_b)) / max(len(traj_a), len(traj_b))
+    return float(aligned_mse * length_penalty)
+
+
+def _finite_distances(distances):
+    distances = np.asarray(distances, dtype=np.float64)
+    return distances[np.isfinite(distances)]
+
+
+def _knn_quality(distances, k=5):
+    distances = _finite_distances(distances)
+    if distances.size == 0:
+        return np.inf
+
+    k = min(k, len(distances))
+    return float(np.mean(np.sort(distances)[:k]))
+
+
+def _jensen_shannon_divergence(values_a, values_b, bins=10):
+    values_a = _finite_distances(values_a)
+    values_b = _finite_distances(values_b)
+    if values_a.size == 0 or values_b.size == 0:
+        return np.nan
+
+    combined = np.concatenate([values_a, values_b])
+    unique_values = np.unique(combined)
+    if unique_values.size < 2:
+        return 0.0
+
+    target_bins = min(bins, unique_values.size - 1)
+    bin_edges = np.unique(np.quantile(combined, np.linspace(0.0, 1.0, target_bins + 1)))
+    if bin_edges.size < 2:
+        return 0.0
+
+    hist_a, _ = np.histogram(values_a, bins=bin_edges)
+    hist_b, _ = np.histogram(values_b, bins=bin_edges)
+    if hist_a.sum() == 0 or hist_b.sum() == 0:
+        return np.nan
+
+    p = hist_a.astype(np.float64) / hist_a.sum()
+    q = hist_b.astype(np.float64) / hist_b.sum()
+    m = 0.5 * (p + q)
+
+    def kl_divergence(a, b):
+        mask = a > 0
+        return np.sum(a[mask] * np.log(a[mask] / b[mask]))
+
+    return float(0.5 * kl_divergence(p, m) + 0.5 * kl_divergence(q, m))
+
+
+def _trajectory_distances(query_traj, reference_trajs, distance_fn):
+    return [
+        distance_fn(query_traj, reference_traj)
+        for reference_traj in reference_trajs
+        if np.asarray(reference_traj).size > 0
+    ]
+
+
+_TRAJECTORY_QD_REFERENCE_CACHE = {}
+
+
+def _human_knn_reference_distribution(human_trajs, distance_name, distance_fn, k=5):
+    cache_key = (id(human_trajs), distance_name, k)
+    if cache_key in _TRAJECTORY_QD_REFERENCE_CACHE:
+        return _TRAJECTORY_QD_REFERENCE_CACHE[cache_key]
+
+    reference_scores = []
+    valid_human_trajs = [traj for traj in human_trajs if np.asarray(traj).size > 0]
+    for i, query_traj in enumerate(valid_human_trajs):
+        distances = [
+            distance_fn(query_traj, reference_traj)
+            for j, reference_traj in enumerate(valid_human_trajs)
+            if i != j
+        ]
+        reference_scores.append(_knn_quality(distances, k=k))
+
+    reference_scores = np.asarray(reference_scores, dtype=np.float64)
+    _TRAJECTORY_QD_REFERENCE_CACHE[cache_key] = reference_scores
+    return reference_scores
+
+
+
 def initialize_env(env_id, seed, agent_type=None, render=False, horizon=None):
-    """Initializes the Gym environment, handling specifics like RLPD wrappers."""
-    # Basic environment creation
     env = gym.make(env_id)
 
     # Capture the default horizon before any modifications
@@ -93,15 +269,6 @@ def initialize_env(env_id, seed, agent_type=None, render=False, horizon=None):
     else:
         print(f"Using default horizon: {default_horizon}")
     
-    # Apply horizon using TimeLimit wrapper if needed
-    # env = TimeLimit(env, max_episode_steps=env._max_episode_steps)
-    
-    # Specific handling for agent types if necessary
-    # Example: RLPD wrapper might require specific setup
-    # if agent_type and "RLPD" in agent_type:
-    #     print("Initializing RLPD environment wrappers...")
-    #     env = wrap_gym(env, rescale_actions=True) # Make sure wrap_gym is imported/defined
-    #     env = gym.wrappers.RecordEpisodeStatistics(env, deque_size=1)
 
     env.seed(seed)
     if render:
@@ -113,12 +280,10 @@ def initialize_env(env_id, seed, agent_type=None, render=False, horizon=None):
 
     print(f"env._max_episode_steps: {env._max_episode_steps}")
 
-    # Store the default horizon as an attribute for later reference
     env._default_horizon = default_horizon
 
     return env
 
-# Helper function to get render frames (handle different render modes)
 def get_render_frame(env, render_mode='rgb_array'):
     """Gets a frame for rendering, trying different methods."""
     try:
@@ -193,8 +358,6 @@ def run_agent_episode(agent, env_id, seed, render=False, render_mode='rgb_array'
                 episode_actions.append(action)
                 episode_length += 1
                 
-                # TODO: remove this block, due to early success
-
                 # # # Check for success during the episode (not just at the end)
                 # if info.get('goal_achieved', False) or info.get('success', False):
                 #     success_val = info.get('success', info.get('goal_achieved'))
@@ -232,10 +395,6 @@ def run_agent_episode(agent, env_id, seed, render=False, render_mode='rgb_array'
             success_val = info.get('success', info.get('goal_achieved'))
             if success_val == True or success_val == 1:
                 success = True
-        # Add other environment-specific checks here if needed
-        # elif 'antmaze' in env_id.lower() and done: # Example heuristic
-        #     # AntMaze success might be inferred differently, e.g., not timing out
-        #     pass
 
     # Calculate normalized score (requires env to have get_normalized_score)
     normalized_score = -np.inf # Default if score func unavailable
@@ -410,6 +569,98 @@ def calculate_wasserstein_distances(agent_traj_states, agent_traj_actions, human
         'state_w2_dist': state_w2,
         'action_w2_dist': action_w2
     }
+
+
+def calculate_state_action_occupancy_mmd(agent_traj_states, agent_traj_actions, human_trajs_states, human_trajs_actions):
+    """Compares agent and human state-action occupancy with RBF-kernel MMD."""
+    occupancy_mmd = np.inf
+
+    if not human_trajs_states or not human_trajs_actions:
+        print("Warning: No human state-action trajectories provided for occupancy MMD.")
+        return {
+            'state_action_mmd': occupancy_mmd
+        }
+
+    agent_samples = _state_action_occupancy_samples(agent_traj_states, agent_traj_actions)
+    if agent_samples.size == 0:
+        print("Warning: Agent state-action trajectory is empty, skipping occupancy MMD.")
+        return {
+            'state_action_mmd': occupancy_mmd
+        }
+
+    human_samples = []
+    for human_states, human_actions in zip(human_trajs_states, human_trajs_actions):
+        samples = _state_action_occupancy_samples(human_states, human_actions)
+        if samples.size > 0:
+            human_samples.append(samples)
+
+    if not human_samples:
+        print("Warning: No valid human state-action trajectories provided for occupancy MMD.")
+        return {
+            'state_action_mmd': occupancy_mmd
+        }
+
+    try:
+        human_samples = np.concatenate(human_samples, axis=0)
+        agent_samples = _deterministic_subsample(agent_samples, max_samples=2000, seed=31)
+        human_samples = _deterministic_subsample(human_samples, max_samples=2000, seed=37)
+
+        scaler = StandardScaler()
+        combined = np.concatenate([agent_samples, human_samples], axis=0)
+        scaler.fit(combined)
+        agent_scaled = scaler.transform(agent_samples)
+        human_scaled = scaler.transform(human_samples)
+
+        occupancy_mmd = _rbf_mmd_squared(agent_scaled, human_scaled)
+    except Exception as e:
+        print(f"Warning: Failed to compute state-action occupancy MMD: {e}")
+        occupancy_mmd = np.inf
+
+    return {
+        'state_action_mmd': occupancy_mmd
+    }
+
+
+def calculate_trajectory_quality_diversity(agent_traj_states, agent_traj_actions, human_trajs_states, human_trajs_actions):
+    """Computes full-trajectory kNN quality and JS diversity against human trajectories."""
+    metrics = {}
+    trajectory_groups = {
+        'state': (agent_traj_states, human_trajs_states),
+        'action': (agent_traj_actions, human_trajs_actions),
+    }
+    distance_fns = {
+        'frechet': _discrete_frechet_distance,
+        'mse': _trajectory_mse_with_length_penalty,
+    }
+
+    for trajectory_name, (agent_traj, human_trajs) in trajectory_groups.items():
+        if np.asarray(agent_traj).size == 0 or not human_trajs:
+            for distance_name in distance_fns:
+                metrics[f'{trajectory_name}_{distance_name}_knn_quality'] = np.inf
+                metrics[f'{trajectory_name}_{distance_name}_js_diversity'] = np.nan
+            continue
+
+        for distance_name, distance_fn in distance_fns.items():
+            agent_to_human_distances = _trajectory_distances(agent_traj, human_trajs, distance_fn)
+            human_reference_scores = _human_knn_reference_distribution(
+                human_trajs,
+                f'{trajectory_name}_{distance_name}',
+                distance_fn,
+                k=5
+            )
+
+            metrics[f'{trajectory_name}_{distance_name}_knn_quality'] = _knn_quality(
+                agent_to_human_distances,
+                k=5
+            )
+            metrics[f'{trajectory_name}_{distance_name}_js_diversity'] = _jensen_shannon_divergence(
+                agent_to_human_distances,
+                human_reference_scores,
+                bins=10
+            )
+
+    return metrics
+
 
 # Example for Wasserstein Distance (ensure ws_dist is importable)
 def calculate_min_dtw_distances(agent_traj_states, agent_traj_actions, human_trajs_states, human_trajs_actions):

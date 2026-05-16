@@ -10,34 +10,6 @@ from tianshou.policy import SACPolicy
 
 
 class DiscreteSACDevPolicy(SACPolicy):
-    """Implementation of SAC for Discrete Action Settings. arXiv:1910.07207.
-
-    :param torch.nn.Module actor: the actor network following the rules in
-        :class:`~tianshou.policy.BasePolicy`. (s -> logits)
-    :param torch.optim.Optimizer actor_optim: the optimizer for actor network.
-    :param torch.nn.Module critic1: the first critic network. (s -> Q(s))
-    :param torch.optim.Optimizer critic1_optim: the optimizer for the first
-        critic network.
-    :param torch.nn.Module critic2: the second critic network. (s -> Q(s))
-    :param torch.optim.Optimizer critic2_optim: the optimizer for the second
-        critic network.
-    :param float tau: param for soft update of the target network. Default to 0.005.
-    :param float gamma: discount factor, in [0, 1]. Default to 0.99.
-    :param (float, torch.Tensor, torch.optim.Optimizer) or float alpha: entropy
-        regularization coefficient. Default to 0.2.
-        If a tuple (target_entropy, log_alpha, alpha_optim) is provided, the
-        alpha is automatically tuned.
-    :param bool reward_normalization: normalize the reward to Normal(0, 1).
-        Default to False.
-    :param lr_scheduler: a learning rate scheduler that adjusts the learning rate in
-        optimizer in each policy.update(). Default to None (no lr_scheduler).
-
-    .. seealso::
-
-        Please refer to :class:`~tianshou.policy.BasePolicy` for more detailed
-        explanation.
-    """
-
     def __init__(
             self,
             actor: torch.nn.Module,

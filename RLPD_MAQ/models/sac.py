@@ -11,45 +11,6 @@ from tianshou.policy import DDPGPolicy
 
 
 class SACPolicy(DDPGPolicy):
-    """Implementation of Soft Actor-Critic. arXiv:1812.05905.
-
-    :param torch.nn.Module actor: the actor network following the rules in
-        :class:`~tianshou.policy.BasePolicy`. (s -> logits)
-    :param torch.optim.Optimizer actor_optim: the optimizer for actor network.
-    :param torch.nn.Module critic1: the first critic network. (s, a -> Q(s, a))
-    :param torch.optim.Optimizer critic1_optim: the optimizer for the first
-        critic network.
-    :param torch.nn.Module critic2: the second critic network. (s, a -> Q(s, a))
-    :param torch.optim.Optimizer critic2_optim: the optimizer for the second
-        critic network.
-    :param float tau: param for soft update of the target network. Default to 0.005.
-    :param float gamma: discount factor, in [0, 1]. Default to 0.99.
-    :param (float, torch.Tensor, torch.optim.Optimizer) or float alpha: entropy
-        regularization coefficient. Default to 0.2.
-        If a tuple (target_entropy, log_alpha, alpha_optim) is provided, then
-        alpha is automatically tuned.
-    :param bool reward_normalization: normalize the reward to Normal(0, 1).
-        Default to False.
-    :param BaseNoise exploration_noise: add a noise to action for exploration.
-        Default to None. This is useful when solving hard-exploration problem.
-    :param bool deterministic_eval: whether to use deterministic action (mean
-        of Gaussian policy) instead of stochastic action sampled by the policy.
-        Default to True.
-    :param bool action_scaling: whether to map actions from range [-1, 1] to range
-        [action_spaces.low, action_spaces.high]. Default to True.
-    :param str action_bound_method: method to bound action to range [-1, 1], can be
-        either "clip" (for simply clipping the action) or empty string for no bounding.
-        Default to "clip".
-    :param Optional[gym.Space] action_space: env's action space, mandatory if you want
-        to use option "action_scaling" or "action_bound_method". Default to None.
-    :param lr_scheduler: a learning rate scheduler that adjusts the learning rate in
-        optimizer in each policy.update(). Default to None (no lr_scheduler).
-
-    .. seealso::
-
-        Please refer to :class:`~tianshou.policy.BasePolicy` for more detailed
-        explanation.
-    """
 
     def __init__(
         self,
